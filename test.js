@@ -115,6 +115,11 @@ test("comments", () => {
 
           // comment inside
           child;
+
+          // other comment inside
+          other_child
+
+          third_child
         }
       `,
 			{
@@ -132,6 +137,11 @@ test("comments", () => {
       "not commented node" /-"commented arg" {
         // comment inside
         child
+
+        // other comment inside
+        other_child
+
+        third_child
       }
     `
 	);

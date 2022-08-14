@@ -115,12 +115,12 @@ function printEntry(entry) {
 /**
  * @param {string} text
  */
-function printNodeSpace(text) {
+function printNodeSpace(text, {previousWasNewline = false} = {}) {
 	/** @type {prettier.Doc[]} */
 	const parts = [];
 	let hasAddedEmptyLine = false;
-  let hasAddedNonEmptyContent = false;
-  let lastWasNewline = false;
+  let hasAddedNonEmptyContent = previousWasNewline;
+  let lastWasNewline = previousWasNewline;
 
 	for (const whitespace of parse(text, {
 		as: "whitespace in document",
@@ -187,7 +187,7 @@ function printNodeSpace(text) {
  * @param {Node} node
  * @returns {prettier.Doc}
  */
-function printNode(node) {
+function printNode(node, isFirstNode = false) {
 	const name = printIdentifier(node.name);
 	const nameAlign = prettier.util.getStringWidth(name) + 1;
 
@@ -270,7 +270,9 @@ function printNode(node) {
 	const parts = [];
 
 	if (node.leading) {
-		parts.push(...printNodeSpace(node.leading));
+		// Nodes always end on a newline after we printed them, because we
+		// (currently) don't ever print multiple nodes with just `;` in between
+		parts.push(...printNodeSpace(node.leading, {previousWasNewline: !isFirstNode}));
 	}
 
 	if (!node.hasChildren() && !node.children?.trailing) {
@@ -329,7 +331,7 @@ function printNode(node) {
  * @returns {prettier.Doc}
  */
 function printDocument(document) {
-	const nodes = document.nodes.map((node) => printNode(node));
+	const nodes = document.nodes.map((node, i) => printNode(node, i === 0));
 
 	/** @type {prettier.Doc[]} */
 	let trailing = [];
