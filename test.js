@@ -69,6 +69,23 @@ test("collapse lines", () => {
 	);
 });
 
+test("tags", () => {
+	assert.is(
+		format(
+			trim.raw`
+        ("tag")node "prop"=(r"tag")true ("ta\"g")false
+      `,
+			{
+				parser: "kdl",
+				plugins: [plugin],
+			}
+		),
+		trim.raw`
+      (tag)node prop=(tag)true (r#"ta"g"#)false
+    `
+	);
+});
+
 test("long line", () => {
 	assert.is(
 		format(

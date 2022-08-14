@@ -188,7 +188,10 @@ function printNodeSpace(text, {previousWasNewline = false} = {}) {
  * @returns {prettier.Doc}
  */
 function printNode(node, isFirstNode = false) {
-	const name = printIdentifier(node.name);
+	let name = printIdentifier(node.name);
+	if (node.tag) {
+		name = `(${printIdentifier(node.tag)})${name}`;
+	}
 	const nameAlign = prettier.util.getStringWidth(name) + 1;
 
 	/** @type {prettier.Doc[][]} */
