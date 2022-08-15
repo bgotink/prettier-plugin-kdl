@@ -5,10 +5,10 @@ __metadata:
   version: 6
   cacheKey: 8
 
-"@bgotink/kdl@npm:0.1.3":
-  version: 0.1.3
-  resolution: "@bgotink/kdl@npm:0.1.3"
-  checksum: a8d70aac13f304fc23a73ca164eccbf69bfa731300b3142b6a2eccb9272510d31ea7936f5c8940daa1be7fbb62a59841484a0c8a215d416a9c91c9acc9380b0e
+"@bgotink/kdl@npm:^0.1.4":
+  version: 0.1.4
+  resolution: "@bgotink/kdl@npm:0.1.4"
+  checksum: 1e5f36216a50352051b339f6a408df5221fe47373f7a7439b8e985f1374a581ed4cd8ecf88ac036c724ee85d04b98093af9acb436ab05c0168efaad8e11b6ed7
   languageName: node
   linkType: hard
 
@@ -16,7 +16,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@bgotink/prettier-plugin-kdl@workspace:."
   dependencies:
-    "@bgotink/kdl": 0.1.3
+    "@bgotink/kdl": ^0.1.4
     prettier: ^2.7.1
     typescript: ^4.7.4
     uvu: ^0.5.4
