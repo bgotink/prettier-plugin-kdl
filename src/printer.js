@@ -38,7 +38,7 @@ function trim(line) {
 
 /**
  * @param {Value} value
- * @returns {prettier.Doc}
+ * @returns {prettier.Doc & string}
  */
 function printValue(value) {
 	const rawValue = value.value;
@@ -54,14 +54,12 @@ function printValue(value) {
 			}
 
 			if (numberOfHashes === 0) {
-				return builders.group(['"', rawValue, '"']);
+				return JSON.stringify(rawValue);
 			}
 
-			return builders.group([
-				`r${"#".repeat(numberOfHashes)}"`,
-				rawValue,
-				`"${"#".repeat(numberOfHashes)}`,
-			]);
+			return `r${"#".repeat(numberOfHashes)}"${rawValue}"${"#".repeat(
+				numberOfHashes
+			)}`;
 		}
 		case "number":
 			return rawValue.toString();
@@ -93,14 +91,14 @@ function printIdentifier(identifier) {
 
 /**
  * @param {Entry} entry
- * @returns {prettier.Doc}
+ * @returns {prettier.Doc & string}
  */
 function printEntry(entry) {
-	/** @type {prettier.Doc[]} */
+	/** @type {string[]} */
 	const parts = [];
 
 	if (entry.name != null) {
-		parts.push([printIdentifier(entry.name), "="]);
+		parts.push(printIdentifier(entry.name), "=");
 	}
 
 	if (entry.tag != null) {
@@ -109,29 +107,29 @@ function printEntry(entry) {
 
 	parts.push(printValue(entry.value));
 
-	return builders.group(parts);
+	return parts.join("");
 }
 
 /**
  * @param {string} text
  */
-function printNodeSpace(text, {previousWasNewline = false} = {}) {
+function printNodeSpace(text, { previousWasNewline = false } = {}) {
 	/** @type {prettier.Doc[]} */
 	const parts = [];
 	let hasAddedEmptyLine = false;
-  let hasAddedNonEmptyContent = previousWasNewline;
-  let lastWasNewline = previousWasNewline;
+	let hasAddedNonEmptyContent = previousWasNewline;
+	let lastWasNewline = previousWasNewline;
 
 	for (const whitespace of parse(text, {
 		as: "whitespace in document",
 	})) {
 		switch (whitespace.type) {
 			case "newline":
-        if (lastWasNewline && hasAddedNonEmptyContent && !hasAddedEmptyLine) {
+				if (lastWasNewline && hasAddedNonEmptyContent && !hasAddedEmptyLine) {
 					parts.push("");
 					hasAddedEmptyLine = true;
 				}
-        lastWasNewline = true;
+				lastWasNewline = true;
 				break;
 			case "line-escape":
 			case "space":
@@ -139,8 +137,8 @@ function printNodeSpace(text, {previousWasNewline = false} = {}) {
 			case "singleline":
 				parts.push(trim(whitespace.content.slice(0, -1)));
 				hasAddedEmptyLine = false;
-        hasAddedNonEmptyContent = true;
-        lastWasNewline = true; // single-line comment implies newline
+				hasAddedNonEmptyContent = true;
+				lastWasNewline = true; // single-line comment implies newline
 				break;
 			case "multiline": {
 				const lines = whitespace.content.split(
@@ -164,8 +162,8 @@ function printNodeSpace(text, {previousWasNewline = false} = {}) {
 
 				parts.push(comment);
 				hasAddedEmptyLine = false;
-        hasAddedNonEmptyContent = true;
-        lastWasNewline = false;
+				hasAddedNonEmptyContent = true;
+				lastWasNewline = false;
 				break;
 			}
 			case "slashdash":
@@ -174,8 +172,8 @@ function printNodeSpace(text, {previousWasNewline = false} = {}) {
 					printNode(parse(whitespace.content.slice(2), { as: "node" })),
 				]);
 				hasAddedEmptyLine = false;
-        hasAddedNonEmptyContent = true;
-        lastWasNewline = false;
+				hasAddedNonEmptyContent = true;
+				lastWasNewline = false;
 				break;
 		}
 	}
@@ -256,7 +254,20 @@ function printNode(node, isFirstNode = false) {
 		}
 	}
 
-	for (const entry of node.entries) {
+	const entries = Array.from(node.entries);
+	const argEntries = node.getArgumentEntries();
+
+	if (
+		argEntries.length === 1 &&
+		entries[0] === argEntries[0] &&
+		(!argEntries[0].leading || !trim(argEntries[0].leading))
+	) {
+		entries.shift();
+
+		name = `${name} ${printEntry(argEntries[0])}`;
+	}
+
+	for (const entry of entries) {
 		if (entry.leading) {
 			addCommentToHeader(entry.leading);
 		}
@@ -275,7 +286,9 @@ function printNode(node, isFirstNode = false) {
 	if (node.leading) {
 		// Nodes always end on a newline after we printed them, because we
 		// (currently) don't ever print multiple nodes with just `;` in between
-		parts.push(...printNodeSpace(node.leading, {previousWasNewline: !isFirstNode}));
+		parts.push(
+			...printNodeSpace(node.leading, { previousWasNewline: !isFirstNode })
+		);
 	}
 
 	if (!node.hasChildren() && !node.children?.trailing) {

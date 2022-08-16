@@ -115,6 +115,27 @@ test("long line", () => {
            "arg"
     `
 	);
+
+	assert.is(
+		format(
+			trim.raw`
+				node "single argument" prop1=false prop2=2e3 prop3="arg" prop4="arg" prop5="arg" prop6="arg"
+			`,
+			{
+				parser: "kdl",
+				plugins: [plugin],
+			}
+		),
+		trim.raw`
+      node "single argument" \
+           prop1=false \
+           prop2=2000 \
+           prop3="arg" \
+           prop4="arg" \
+           prop5="arg" \
+           prop6="arg"
+		`
+	)
 });
 
 test("comments", () => {

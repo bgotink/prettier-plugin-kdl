@@ -1,13 +1,8 @@
-const prettier = require("prettier");
 const { parse, getLocation } = require("@bgotink/kdl");
 
 const { printer } = require("./printer.js");
 
-const {
-	doc: { builders },
-} = prettier;
-
-/** @type {prettier.Plugin} */
+/** @type {import('prettier').Plugin} */
 const plugin = {
 	languages: [
 		{
