@@ -1,4 +1,3 @@
-const prettier = require("prettier");
 const {
 	parse,
 	Value,
@@ -8,9 +7,22 @@ const {
 	Entry,
 } = require("@bgotink/kdl");
 
-const {
+/** @typedef {import('prettier').Doc} Doc */
+
+let {
 	doc: { builders },
-} = prettier;
+	util: { getStringWidth },
+} = require("prettier");
+
+/**
+ * @param {import('prettier')} prettier
+ */
+exports.overridePrettierForTesting = (prettier) => {
+	({
+		doc: { builders },
+		util: { getStringWidth },
+	} = prettier);
+};
 
 const plainIdentifierRe =
 	/^(?![+-][0-9])[\x21\x23-\x27\x2A\x2B\x2D\x2E\x3A\x3F-\x5A\x5E-\x7A\x7C\x7E-\uFFFF][\x21\x23-\x27\x2A\x2B\x2D\x2E\x30-\x3A\x3F-\x5A\x5E-\x7A\x7C\x7E-\uFFFF]*$/;
@@ -38,7 +50,7 @@ function trim(line) {
 
 /**
  * @param {Value} value
- * @returns {prettier.Doc & string}
+ * @returns {Doc & string}
  */
 function printValue(value) {
 	const rawValue = value.value;
@@ -68,7 +80,7 @@ function printValue(value) {
 
 /**
  * @param {Identifier} identifier
- * @returns {prettier.Doc & string}
+ * @returns {Doc & string}
  */
 function printIdentifier(identifier) {
 	if (identifier.name.length === 0 || plainIdentifierRe.test(identifier.name)) {
@@ -91,7 +103,7 @@ function printIdentifier(identifier) {
 
 /**
  * @param {Entry} entry
- * @returns {prettier.Doc & string}
+ * @returns {Doc & string}
  */
 function printEntry(entry) {
 	/** @type {string[]} */
@@ -114,7 +126,7 @@ function printEntry(entry) {
  * @param {string} text
  */
 function printNodeSpace(text, { previousWasNewline = false } = {}) {
-	/** @type {prettier.Doc[]} */
+	/** @type {Doc[]} */
 	const parts = [];
 	let hasAddedEmptyLine = false;
 	let hasAddedNonEmptyContent = previousWasNewline;
@@ -145,7 +157,7 @@ function printNodeSpace(text, { previousWasNewline = false } = {}) {
 					/\x0D\x0A|[\x0A\x0C\x0D\x85\u2028\u2029]/
 				);
 
-				/** @type {prettier.Doc} */
+				/** @type {Doc} */
 				let comment;
 
 				if (
@@ -183,18 +195,18 @@ function printNodeSpace(text, { previousWasNewline = false } = {}) {
 
 /**
  * @param {Node} node
- * @returns {prettier.Doc}
+ * @returns {Doc}
  */
 function printNode(node, isFirstNode = false) {
 	let name = printIdentifier(node.name);
 	if (node.tag) {
 		name = `(${printIdentifier(node.tag)})${name}`;
 	}
-	const nameAlign = prettier.util.getStringWidth(name) + 1;
+	const nameAlign = getStringWidth(name) + 1;
 
-	/** @type {prettier.Doc[][]} */
+	/** @type {Doc[][]} */
 	const header = [];
-	/** @type {prettier.Doc[]} */
+	/** @type {Doc[]} */
 	let lastHeaderItem = [];
 	const continuation = builders.ifBreak(" \\");
 
@@ -230,7 +242,7 @@ function printNode(node, isFirstNode = false) {
 						/\x0D\x0A|[\x0A\x0C\x0D\x85\u2028\u2029]/
 					);
 
-					/** @type {prettier.Doc} */
+					/** @type {Doc} */
 					let comment;
 
 					if (
@@ -280,7 +292,7 @@ function printNode(node, isFirstNode = false) {
 		addCommentToHeader(node.beforeChildren);
 	}
 
-	/** @type {prettier.Doc[]} */
+	/** @type {Doc[]} */
 	const parts = [];
 
 	if (node.leading) {
@@ -344,12 +356,12 @@ function printNode(node, isFirstNode = false) {
 
 /**
  * @param {Document} document
- * @returns {prettier.Doc}
+ * @returns {Doc}
  */
 function printDocument(document) {
 	const nodes = document.nodes.map((node, i) => printNode(node, i === 0));
 
-	/** @type {prettier.Doc[]} */
+	/** @type {Doc[]} */
 	let trailing = [];
 
 	if (document.trailing) {
@@ -363,7 +375,7 @@ function printDocument(document) {
 }
 
 /**
- * @type {prettier.Printer<Document>}
+ * @type {import('prettier').Printer<Document>}
  */
 exports.printer = {
 	print: (path) => {

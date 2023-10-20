@@ -1,11 +1,20 @@
-const { test } = require("uvu");
-const assert = require("uvu/assert");
-const {
+import { test } from "uvu";
+import * as assert from "uvu/assert";
+import prettier2 from 'prettier';
+import prettier3, {
 	format,
-	util: { getStringWidth },
-} = require("prettier");
+	util,
+} from "prettier3";
 
-const plugin = require("./src/index.js");
+const { getStringWidth } = util;
+
+import p from "../src/index.js";
+import {overridePrettierForTesting} from '../src/printer.js';
+
+test.before(() => overridePrettierForTesting(/** @type {any} */ (prettier3)));
+test.after(() => overridePrettierForTesting(prettier2));
+
+const plugin = /** @type {import('prettier3').Plugin} */ (p);
 
 /**
  * @param {TemplateStringsArray} tpl
@@ -43,14 +52,14 @@ function trim(tpl) {
 // string's content as if it's a regular javascript string
 trim.raw = trim;
 
-test("collapse lines", () => {
+test("collapse lines", async () => {
 	assert.is(
-		format(
+		await format(
 			trim.raw`
         "node" "prop"=true\
               r##"arg"## false 2e3\
               {
-                
+
                 
                 
                 child;
@@ -69,9 +78,9 @@ test("collapse lines", () => {
 	);
 });
 
-test("tags", () => {
+test("tags", async () => {
 	assert.is(
-		format(
+		await format(
 			trim.raw`
         ("tag")node "prop"=(r"tag")true ("ta\"g")false
       `,
@@ -86,9 +95,9 @@ test("tags", () => {
 	);
 });
 
-test("long line", () => {
+test("long line", async () => {
 	assert.is(
-		format(
+		await format(
 			trim.raw`
         "node" "prop"=true\
                           r##"arg"## false 2e3 "arg" "arg" "arg" "arg" "arg" "arg" "arg" "arg" "arg"
@@ -117,7 +126,7 @@ test("long line", () => {
 	);
 
 	assert.is(
-		format(
+		await format(
 			trim.raw`
 				node "single argument" prop1=false prop2=2e3 prop3="arg" prop4="arg" prop5="arg" prop6="arg"
 			`,
@@ -138,9 +147,9 @@ test("long line", () => {
 	)
 });
 
-test("comments", () => {
+test("comments", async () => {
 	assert.is(
-		format(
+		await format(
 			trim.raw`
         // lookie here, a comment
         /*
