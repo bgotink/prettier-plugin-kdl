@@ -1,20 +1,12 @@
 import { test } from "uvu";
 import * as assert from "uvu/assert";
-import prettier2 from 'prettier';
-import prettier3, {
-	format,
-	util,
-} from "prettier3";
+import { format, util } from "prettier";
 
 const { getStringWidth } = util;
 
 import p from "../src/index.js";
-import {overridePrettierForTesting} from '../src/printer.js';
 
-test.before(() => overridePrettierForTesting(/** @type {any} */ (prettier3)));
-test.after(() => overridePrettierForTesting(prettier2));
-
-const plugin = /** @type {import('prettier3').Plugin} */ (p);
+const plugin = /** @type {import('prettier').Plugin} */ (p);
 
 /**
  * @param {TemplateStringsArray} tpl
@@ -56,25 +48,25 @@ test("collapse lines", async () => {
 	assert.is(
 		await format(
 			trim.raw`
-        "node" "prop"=true\
-              r##"arg"## false 2e3\
+        "node" "prop"=#true\
+              ##"arg"## #false 2e3\
               {
 
-                
-                
+
+
                 child;
         }
       `,
 			{
 				parser: "kdl",
 				plugins: [plugin],
-			}
+			},
 		),
 		trim.raw`
-      node prop=true "arg" false 2000 {
+      node prop=#true "arg" #false 2000 {
         child
       }
-    `
+    `,
 	);
 });
 
@@ -82,16 +74,16 @@ test("tags", async () => {
 	assert.is(
 		await format(
 			trim.raw`
-        ("tag")node "prop"=(r"tag")true ("ta\"g")false
+        ("tag")node "prop"=("tag")#true ("ta\"g")#false
       `,
 			{
 				parser: "kdl",
 				plugins: [plugin],
-			}
+			},
 		),
 		trim.raw`
-      (tag)node prop=(tag)true (r#"ta"g"#)false
-    `
+      (tag)node prop=(tag)#true (#"ta"g"#)#false
+    `,
 	);
 });
 
@@ -99,19 +91,19 @@ test("long line", async () => {
 	assert.is(
 		await format(
 			trim.raw`
-        "node" "prop"=true\
-                          r##"arg"## false 2e3 "arg" "arg" "arg" "arg" "arg" "arg" "arg" "arg" "arg"
+        "node" "prop"=#true\
+                          ##"arg"## #false 2e3 "arg" "arg" "arg" "arg" "arg" "arg" "arg" "arg" "arg"
       `,
 			{
 				parser: "kdl",
 				plugins: [plugin],
-			}
+			},
 		),
 		trim.raw`
       node \
-           prop=true \
+           prop=#true \
            "arg" \
-           false \
+           #false \
            2000 \
            "arg" \
            "arg" \
@@ -122,29 +114,29 @@ test("long line", async () => {
            "arg" \
            "arg" \
            "arg"
-    `
+    `,
 	);
 
 	assert.is(
 		await format(
 			trim.raw`
-				node "single argument" prop1=false prop2=2e3 prop3="arg" prop4="arg" prop5="arg" prop6="arg"
+				node "single argument" prop1=#false prop2=2e3 prop3="arg" prop4="arg" prop5="arg" prop6="arg"
 			`,
 			{
 				parser: "kdl",
 				plugins: [plugin],
-			}
+			},
 		),
 		trim.raw`
       node "single argument" \
-           prop1=false \
+           prop1=#false \
            prop2=2000 \
            prop3="arg" \
            prop4="arg" \
            prop5="arg" \
            prop6="arg"
-		`
-	)
+		`,
+	);
 });
 
 test("comments", async () => {
@@ -157,8 +149,8 @@ test("comments", async () => {
          */
         /-commented   "node";
 
-        r"not commented node" \
-        /-"commented arg"{
+        "not commented node" \
+        /-"commented arg" {
 
           // comment inside
           child;
@@ -172,7 +164,7 @@ test("comments", async () => {
 			{
 				parser: "kdl",
 				plugins: [plugin],
-			}
+			},
 		),
 		trim.raw`
       // lookie here, a comment
@@ -190,7 +182,7 @@ test("comments", async () => {
 
         third_child
       }
-    `
+    `,
 	);
 });
 

@@ -1,45 +1,36 @@
-const {
-	parse,
-	Value,
-	Identifier,
-	Document,
-	Node,
-	Entry,
-} = require("@bgotink/kdl");
+import { parse, Value, Identifier, Document, Node, Entry } from "@bgotink/kdl";
+import { util, doc } from "prettier";
 
 /** @typedef {import('prettier').Doc} Doc */
 
-let {
-	doc: { builders },
-	util: { getStringWidth },
-} = require("prettier");
-
-/**
- * @param {import('prettier')} prettier
- */
-exports.overridePrettierForTesting = (prettier) => {
-	({
-		doc: { builders },
-		util: { getStringWidth },
-	} = prettier);
-};
+const { builders } = doc;
+const { getStringWidth } = util;
 
 const plainIdentifierRe =
 	/^(?![+-][0-9])[\x21\x23-\x27\x2A\x2B\x2D\x2E\x3A\x3F-\x5A\x5E-\x7A\x7C\x7E-\uFFFF][\x21\x23-\x27\x2A\x2B\x2D\x2E\x30-\x3A\x3F-\x5A\x5E-\x7A\x7C\x7E-\uFFFF]*$/;
 
+const reservedIdentifiers = new Set([
+	"inf",
+	"-inf",
+	"nan",
+	"true",
+	"false",
+	"null",
+]);
+
 /** @param {string} line */
 function trimStart(line) {
 	return line.replace(
-		/^[ \t\uFEFF\u00A0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000]*/,
-		""
+		/^[ \t\uFEFF\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*/,
+		"",
 	);
 }
 
 /** @param {string} line */
 function trimEnd(line) {
 	return line.replace(
-		/[ \t\uFEFF\u00A0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u3000]*$/,
-		""
+		/[ \t\uFEFF\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/,
+		"",
 	);
 }
 
@@ -58,7 +49,7 @@ function printValue(value) {
 	switch (typeof rawValue) {
 		case "object": // null
 		case "boolean":
-			return String(rawValue);
+			return `#${rawValue}`;
 		case "string": {
 			let numberOfHashes = 0;
 			while (rawValue.includes(`"${"#".repeat(numberOfHashes)}`)) {
@@ -69,21 +60,31 @@ function printValue(value) {
 				return JSON.stringify(rawValue);
 			}
 
-			return `r${"#".repeat(numberOfHashes)}"${rawValue}"${"#".repeat(
-				numberOfHashes
+			return `${"#".repeat(numberOfHashes)}"${rawValue}"${"#".repeat(
+				numberOfHashes,
 			)}`;
 		}
 		case "number":
-			return rawValue.toString();
+			if (Number.isNaN(rawValue)) {
+				return "#nan";
+			} else if (!Number.isFinite(rawValue)) {
+				return rawValue < 0 ? "#-inf" : "#inf";
+			} else {
+				return rawValue.toString();
+			}
 	}
 }
 
 /**
- * @param {Identifier} identifier
+ * @param {Pick<Identifier, 'name'>} identifier
  * @returns {Doc & string}
  */
 function printIdentifier(identifier) {
-	if (identifier.name.length === 0 || plainIdentifierRe.test(identifier.name)) {
+	if (
+		identifier.name.length > 0 &&
+		!reservedIdentifiers.has(identifier.name) &&
+		plainIdentifierRe.test(identifier.name)
+	) {
 		return identifier.name;
 	}
 
@@ -96,8 +97,8 @@ function printIdentifier(identifier) {
 		return `"${identifier.name}"`;
 	}
 
-	return `r${"#".repeat(numberOfHashes)}"${identifier.name}"${"#".repeat(
-		numberOfHashes
+	return `${"#".repeat(numberOfHashes)}"${identifier.name}"${"#".repeat(
+		numberOfHashes,
 	)}`;
 }
 
@@ -110,11 +111,18 @@ function printEntry(entry) {
 	const parts = [];
 
 	if (entry.name != null) {
-		parts.push(printIdentifier(entry.name), "=");
+		parts.push(printIdentifier(entry.name), entry.equals ?? "=");
 	}
 
 	if (entry.tag != null) {
-		parts.push("(", printIdentifier(entry.tag), ")");
+		parts.push(
+			"(",
+			trim(entry.tag.leading ?? ""),
+			printIdentifier(entry.tag),
+			trim(entry.tag.trailing ?? ""),
+			")",
+			trim(entry.betweenTagAndValue ?? ""),
+		);
 	}
 
 	parts.push(printValue(entry.value));
@@ -125,7 +133,7 @@ function printEntry(entry) {
 /**
  * @param {string} text
  */
-function printNodeSpace(text, { previousWasNewline = false } = {}) {
+function printLineSpace(text, { previousWasNewline = false } = {}) {
 	/** @type {Doc[]} */
 	const parts = [];
 	let hasAddedEmptyLine = false;
@@ -143,18 +151,17 @@ function printNodeSpace(text, { previousWasNewline = false } = {}) {
 				}
 				lastWasNewline = true;
 				break;
-			case "line-escape":
 			case "space":
 				break;
 			case "singleline":
-				parts.push(trim(whitespace.content.slice(0, -1)));
+				parts.push(trim(whitespace.text.slice(0, -1)));
 				hasAddedEmptyLine = false;
 				hasAddedNonEmptyContent = true;
 				lastWasNewline = true; // single-line comment implies newline
 				break;
 			case "multiline": {
-				const lines = whitespace.content.split(
-					/\x0D\x0A|[\x0A\x0C\x0D\x85\u2028\u2029]/
+				const lines = whitespace.text.split(
+					/\x0D\x0A|[\x0A\x0C\x0D\x85\u2028\u2029]/,
 				);
 
 				/** @type {Doc} */
@@ -179,10 +186,7 @@ function printNodeSpace(text, { previousWasNewline = false } = {}) {
 				break;
 			}
 			case "slashdash":
-				parts.push([
-					"/-",
-					printNode(parse(whitespace.content.slice(2), { as: "node" })),
-				]);
+				parts.push(["/-", printNode(whitespace.value)]);
 				hasAddedEmptyLine = false;
 				hasAddedNonEmptyContent = true;
 				lastWasNewline = false;
@@ -200,7 +204,7 @@ function printNodeSpace(text, { previousWasNewline = false } = {}) {
 function printNode(node, isFirstNode = false) {
 	let name = printIdentifier(node.name);
 	if (node.tag) {
-		name = `(${printIdentifier(node.tag)})${name}`;
+		name = `(${trim(node.tag.leading ?? "")}${printIdentifier(node.tag)}${trim(node.tag.trailing ?? "")})${trim(node.betweenTagAndName ?? "")}${name}`;
 	}
 	const nameAlign = getStringWidth(name) + 1;
 
@@ -216,30 +220,75 @@ function printNode(node, isFirstNode = false) {
 			as: "whitespace in node",
 		})) {
 			switch (whitespace.type) {
-				case "newline":
-				case "line-escape":
 				case "space":
 					break;
-				case "singleline":
-					lastHeaderItem.push(continuation);
-					lastHeaderItem = [];
-					header.push([
-						builders.breakParent,
-						`\\ ${trim(whitespace.content.slice(0, -1))}`,
-					]);
+				case "line-escape":
+					{
+						for (const nestedWhitespace of parse(whitespace.text.slice(1), {
+							as: "whitespace in document",
+						})) {
+							switch (nestedWhitespace.type) {
+								case "multiline":
+									const lines = whitespace.text.split(
+										/\x0D\x0A|[\x0A\x0C\x0D\x85\u2028\u2029]/,
+									);
+
+									/** @type {Doc} */
+									let comment;
+
+									if (
+										lines.length === 1 ||
+										!lines.every(
+											(line, i) => i === 0 || trimStart(line).startsWith("*"),
+										)
+									) {
+										comment = builders.join(
+											builders.hardlineWithoutBreakParent,
+											lines,
+										);
+									} else {
+										comment = builders.join(
+											builders.hardlineWithoutBreakParent,
+											[
+												trim(lines[0]),
+												...lines.slice(1).map((line) => ` ${trim(line)}`),
+											],
+										);
+									}
+
+									lastHeaderItem.push(continuation);
+									header.push((lastHeaderItem = [comment]));
+								case "singleline":
+								case "singleline":
+									lastHeaderItem.push(continuation);
+									lastHeaderItem = [];
+									header.push([
+										builders.breakParent,
+										`\\ ${trim(nestedWhitespace.text.slice(0, -1))}`,
+									]);
+									break;
+
+								default:
+								// do nothing
+							}
+						}
+					}
+
 					break;
 				case "slashdash":
 					lastHeaderItem.push(continuation);
 					header.push(
 						(lastHeaderItem = [
 							"/-",
-							printEntry(parse(whitespace.content.slice(2), { as: "entry" })),
-						])
+							whitespace.value instanceof Entry
+								? printEntry(whitespace.value)
+								: ["{", printDocument(whitespace.value), "}"],
+						]),
 					);
 					break;
 				case "multiline": {
-					const lines = whitespace.content.split(
-						/\x0D\x0A|[\x0A\x0C\x0D\x85\u2028\u2029]/
+					const lines = whitespace.text.split(
+						/\x0D\x0A|[\x0A\x0C\x0D\x85\u2028\u2029]/,
 					);
 
 					/** @type {Doc} */
@@ -248,7 +297,7 @@ function printNode(node, isFirstNode = false) {
 					if (
 						lines.length === 1 ||
 						!lines.every(
-							(line, i) => i === 0 || trimStart(line).startsWith("*")
+							(line, i) => i === 0 || trimStart(line).startsWith("*"),
 						)
 					) {
 						comment = builders.join(builders.hardlineWithoutBreakParent, lines);
@@ -299,7 +348,7 @@ function printNode(node, isFirstNode = false) {
 		// Nodes always end on a newline after we printed them, because we
 		// (currently) don't ever print multiple nodes with just `;` in between
 		parts.push(
-			...printNodeSpace(node.leading, { previousWasNewline: !isFirstNode })
+			...printLineSpace(node.leading, { previousWasNewline: !isFirstNode }),
 		);
 	}
 
@@ -316,9 +365,9 @@ function printNode(node, isFirstNode = false) {
 				continuation,
 				builders.ifBreak(
 					builders.align(nameAlign, [builders.line, joinedHeader]),
-					[builders.line, joinedHeader]
+					[builders.line, joinedHeader],
 				),
-			])
+			]),
 		);
 	} else {
 		lastHeaderItem.push(continuation);
@@ -331,7 +380,7 @@ function printNode(node, isFirstNode = false) {
 				continuation,
 				builders.ifBreak(
 					builders.align(nameAlign, [builders.line, joinedHeader]),
-					[builders.line, joinedHeader]
+					[builders.line, joinedHeader],
 				),
 			]),
 			builders.indent([
@@ -348,7 +397,7 @@ function printNode(node, isFirstNode = false) {
 		if (trailing.endsWith(";")) {
 			trailing = trailing.slice(0, -1);
 		}
-		parts.push(...printNodeSpace(trailing));
+		parts.push(...printLineSpace(trailing));
 	}
 
 	return builders.join(builders.hardline, parts);
@@ -365,7 +414,7 @@ function printDocument(document) {
 	let trailing = [];
 
 	if (document.trailing) {
-		trailing.push(...printNodeSpace(document.trailing));
+		trailing.push(...printLineSpace(document.trailing));
 	}
 
 	return builders.join(builders.hardline, [
@@ -377,7 +426,7 @@ function printDocument(document) {
 /**
  * @type {import('prettier').Printer<Document>}
  */
-exports.printer = {
+export const printer = {
 	print: (path) => {
 		return [printDocument(path.getValue()), builders.hardline];
 	},

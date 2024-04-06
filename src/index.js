@@ -1,6 +1,6 @@
-const { parse, getLocation } = require("@bgotink/kdl");
+import { parse, getLocation } from "@bgotink/kdl";
 
-const { printer } = require("./printer.js");
+import { printer } from "./printer.js";
 
 /** @type {import('prettier').Plugin} */
 const plugin = {
@@ -36,4 +36,4 @@ const plugin = {
 	printers: { kdl: printer },
 };
 
-module.exports = plugin;
+export default plugin;
